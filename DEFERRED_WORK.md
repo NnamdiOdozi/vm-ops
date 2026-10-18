@@ -20,9 +20,3 @@ someone else, who may already monitor disk or want these alerts. **Status:** not
 **Source:** disk clean-up session. `journalctl --vacuum-size=200M` freed 1.2 GB but does not
 stop regrowth. **Scoped:** `SystemMaxUse=200M` in `/etc/systemd/journald.conf`, then restart
 `systemd-journald`. Could become a second check or a step in `install.sh`. **Status:** open.
-
-## Measure the daily du on the VM (2026-10-18)
-
-**Source:** DOUBTS.md item 3. **Scoped:** after install, read `elapsed_s` from the
-`du_snapshot` log line (`journalctl -u vm-disk-alert | grep du_snapshot`). If it is over a
-few minutes, lower `du_depth`. **Status:** waiting for install.
