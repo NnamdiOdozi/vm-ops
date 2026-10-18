@@ -1,0 +1,13 @@
+[project]
+name = "vm-ops"
+version = "0.1.0"
+description = "Machine-level checks for the Hetzner VM: disk alert by email"
+requires-python = ">=3.11"   # tomllib; the VM runs the system python3 with no dependencies
+dependencies = []
+
+[dependency-groups]
+dev = ["pytest"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

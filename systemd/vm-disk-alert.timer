@@ -1,0 +1,10 @@
+# Disk check every 15 minutes; Persistent catches up after the VM was off.
+[Unit]
+Description=15-minute VM disk alert
+
+[Timer]
+OnCalendar=*:0/15
+Persistent=true
+
+[Install]
+WantedBy=timers.target

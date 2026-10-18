@@ -1,0 +1,14 @@
+# Template: install.sh fills __INSTALL_DIR__. Started every 15 minutes by vm-disk-alert.timer.
+[Unit]
+Description=VM disk alert (emails only when the disk is nearly full or filling fast)
+
+[Service]
+Type=oneshot
+# Root-only file with SMTP_USER and SMTP_PASSWORD (a Gmail app password); never in git.
+EnvironmentFile=/etc/vm-ops/smtp.env
+Environment=PYTHONPATH=__INSTALL_DIR__/src
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/usr/bin/python3 -m vm_ops.disk_alert --config /etc/vm-ops/config.toml
+# du walks the whole disk once a day; keep it from competing with the apps for I/O.
+Nice=10
+IOSchedulingClass=idle

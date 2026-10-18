@@ -1,0 +1,25 @@
+# vm-ops settings. install.sh copies this to /etc/vm-ops/config.toml on FIRST install only,
+# so edits made on the VM survive updates. Edit there, not here, for one machine's values.
+
+[disk]
+path = "/"
+alert_percent = 85            # "nearly full" when used/(used+available) reaches this, like df
+fill_alert_hours = 24         # "filling fast" when the disk would be full within this many hours
+min_fill_rate_gb_per_hour = 0.5   # ignore slower growth: normal log churn is not an emergency
+cooldown_hours = 6            # each rule emails at most once per this many hours
+
+[growth]
+du_depth = 3                  # folder depth of the size snapshot (/root/.cache/uv is depth 3)
+top_n = 10                    # rows per list in the email
+snapshot_hour_utc = 3         # the daily baseline snapshot is taken on the first run after this hour
+unaccounted_gb = 1.0          # df minus du above this suggests deleted-but-open files
+du_timeout_seconds = 600
+
+[email]
+alert_to = "nnamdi.odozi+vmops@gmail.com"   # +tag: filter these alerts in Gmail
+subject_prefix = "[vm-ops]"
+smtp_host = "smtp.gmail.com"
+smtp_port = 587               # STARTTLS; Hetzner blocks outgoing 25 and 465 by default
+
+[paths]
+state_file = "/var/lib/vm-ops/disk_state.json"

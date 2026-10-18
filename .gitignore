@@ -1,0 +1,17 @@
+# Environments and caches
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+
+# Secrets: the real smtp.env lives only in /etc/vm-ops on the VM
+.env
+.env.*
+.envrc
+smtp.env
+
+# State and databases
+*.json.bak
+*.db
+*.sqlite
+*.sqlite3
