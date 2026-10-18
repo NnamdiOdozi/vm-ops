@@ -5,12 +5,15 @@
 path = "/"
 alert_percent = 85            # "nearly full" when used/(used+available) reaches this, like df
 fill_alert_hours = 24         # "filling fast" when the disk would be full within this many hours
-min_fill_rate_gb_per_hour = 0.5   # ignore slower growth: normal log churn is not an emergency
+fill_window_hours = 6         # measure the fill rate over this much history, not one 15-min step
+min_fill_drop_gb = 5          # and only once free space really fell this much: installs and
+                              # VS Code logins (0.5-3 GB) must not alert
 cooldown_hours = 6            # each rule emails at most once per this many hours
 
 [growth]
 du_depth = 3                  # folder depth of the size snapshot (/root/.cache/uv is depth 3)
 top_n = 10                    # rows per list in the email
+min_growth_gb = 0.01          # hide folders that grew by less than this (the "+0.00 GB" rows)
 snapshot_hour_utc = 3         # the daily baseline snapshot is taken on the first run after this hour
 unaccounted_gb = 1.0          # df minus du above this suggests deleted-but-open files
 du_timeout_seconds = 600

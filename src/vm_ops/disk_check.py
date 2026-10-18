@@ -15,23 +15,31 @@ def percent_used(reading):
     return 100 * reading["used"] / (reading["used"] + reading["free"])
 
 
-def disk_problems(reading, previous, cfg):
-    """Return [(rule, message)] for every rule the reading breaks, ignoring cooldowns."""
+def disk_problems(reading, history, cfg):
+    """Return [(rule, message)] for every rule the reading breaks, ignoring cooldowns.
+
+    history: earlier readings, oldest first. The fill rate is measured from the oldest one
+    inside fill_window_hours: a one-off install over a single 15-minute step once projected
+    to "full in 5 hours" (2026-10-18), so short bursts must be averaged out.
+    """
     problems = []
     pct = percent_used(reading)
     free_gb = reading["free"] / GB
     if pct >= cfg["alert_percent"]:
         problems.append(("nearly_full", f"Disk is {pct:.1f}% used (alert at "
                          f"{cfg['alert_percent']}%); {free_gb:.1f} GB still writable."))
-    if previous:
-        hours = (reading["time"] - previous["time"]) / 3600
-        rate = (previous["free"] - reading["free"]) / GB / hours if hours > 0 else 0
-        if rate >= cfg["min_fill_rate_gb_per_hour"]:
+    window = [r for r in history if reading["time"] - r["time"] <= cfg["fill_window_hours"] * 3600]
+    if window:
+        base = window[0]
+        hours = (reading["time"] - base["time"]) / 3600
+        drop_gb = (base["free"] - reading["free"]) / GB
+        if hours > 0 and drop_gb >= cfg["min_fill_drop_gb"]:
+            rate = drop_gb / hours
             hours_to_full = free_gb / rate
             if hours_to_full <= cfg["fill_alert_hours"]:
-                problems.append(("filling_fast", f"Free space fell at {rate:.2f} GB/hour over the "
-                                 f"last {hours * 60:.0f} minutes; at that rate the disk is full in "
-                                 f"about {hours_to_full:.1f} hours ({free_gb:.1f} GB left)."))
+                problems.append(("filling_fast", f"Free space fell {drop_gb:.1f} GB over the last "
+                                 f"{hours:.1f} hours ({rate:.2f} GB/hour); at that rate the disk is "
+                                 f"full in about {hours_to_full:.1f} hours ({free_gb:.1f} GB left)."))
     return problems
 
 
@@ -72,11 +80,11 @@ def label(path, sizes):
     return f"{path} (files directly inside)" if has_children else path
 
 
-def growth_rows(before, after, top_n):
+def growth_rows(before, after, top_n, min_bytes=1):
     """Top folders by growth of their own size since the baseline: [(bytes grown, label)]."""
     old, new = own_sizes(before), own_sizes(after)
     grown = sorted(((new[p] - old.get(p, 0), p) for p in new), reverse=True)
-    return [(g, label(p, after)) for g, p in grown[:top_n] if g > 0]
+    return [(g, label(p, after)) for g, p in grown[:top_n] if g >= min_bytes]
 
 
 def largest_rows(sizes, top_n):

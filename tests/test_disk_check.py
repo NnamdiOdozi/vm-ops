@@ -3,7 +3,8 @@
 from vm_ops import disk_check
 from vm_ops.disk_check import GB
 
-CFG = {"alert_percent": 85, "fill_alert_hours": 24, "min_fill_rate_gb_per_hour": 0.5}
+CFG = {"alert_percent": 85, "fill_alert_hours": 24, "fill_window_hours": 6, "min_fill_drop_gb": 5}
+H = 3600
 
 
 def reading(used_gb, free_gb, time=0):
@@ -20,24 +21,32 @@ def test_percent_uses_df_convention():
 
 
 def test_nearly_full_triggers_at_threshold_only():
-    assert rules(disk_check.disk_problems(reading(85, 15), None, CFG)) == ["nearly_full"]
-    assert disk_check.disk_problems(reading(84, 16), None, CFG) == []
+    assert rules(disk_check.disk_problems(reading(85, 15), [], CFG)) == ["nearly_full"]
+    assert disk_check.disk_problems(reading(84, 16), [], CFG) == []
 
 
 def test_filling_fast_when_full_within_window():
-    # 2 GB lost in 15 minutes = 8 GB/h; 20 GB left -> full in 2.5 h, though only 60% used.
-    before, now = reading(28, 22, 0), reading(30, 20, 900)
-    assert rules(disk_check.disk_problems(now, before, CFG)) == ["filling_fast"]
+    # 6 GB lost in 2 hours = 3 GB/h; 20 GB left -> full in under 7 h, though only 60% used.
+    history = [reading(24, 26, 0), reading(26, 24, 1 * H)]
+    assert rules(disk_check.disk_problems(reading(30, 20, 2 * H), history, CFG)) == ["filling_fast"]
 
 
-def test_slow_growth_is_not_an_alert():
-    # 0.1 GB in 15 minutes = 0.4 GB/h, below the noise floor even though 20 GB would last 50 h.
-    assert disk_check.disk_problems(reading(30, 20, 900), reading(29.9, 20.1, 0), CFG) == []
+def test_vscode_login_burst_is_not_an_alert():
+    # The 2026-10-18 false alarm: 0.6 GB in 15 minutes, 12 GB left. Under the 5 GB minimum.
+    history = [reading(22.4, 12.6, 0)]
+    assert disk_check.disk_problems(reading(23, 12, 900), history, CFG) == []
 
 
-def test_fast_but_distant_full_is_not_an_alert():
-    # 1 GB/h with 30 GB left is 30 h away: outside the 24 h window.
-    assert disk_check.disk_problems(reading(20, 30, 3600), reading(19, 31, 0), CFG) == []
+def test_rate_is_measured_over_the_window_not_the_last_step():
+    # A 5.5 GB install six hours ago averages to under 1 GB/h; 25 GB left is ~27 h away.
+    history = [reading(20, 30.5, 0), reading(25.5, 25, 900)]
+    assert disk_check.disk_problems(reading(25.5, 25, 6 * H), history, CFG) == []
+
+
+def test_readings_older_than_the_window_are_ignored():
+    # A 10 GB drop that started 7 hours ago is outside the 6-hour window.
+    history = [reading(10, 30, 0), reading(19, 21, 1.5 * H)]
+    assert disk_check.disk_problems(reading(20, 20, 7 * H), history, CFG) == []
 
 
 def test_cooldown_suppresses_repeat_but_not_other_rule():
@@ -49,6 +58,12 @@ def test_cooldown_suppresses_repeat_but_not_other_rule():
 
 def test_parse_du():
     assert disk_check.parse_du("100\t/root/.cache\n300\t/root\n") == {"/root/.cache": 100, "/root": 300}
+
+
+def test_growth_hides_rows_below_the_minimum():
+    before = {"/": 10, "/a": 5, "/b": 5}
+    after = {"/": 14, "/a": 8, "/b": 6}
+    assert disk_check.growth_rows(before, after, 10, min_bytes=2) == [(3, "/a")]
 
 
 def test_growth_names_the_deepest_culprit_once():

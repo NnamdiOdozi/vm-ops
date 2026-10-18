@@ -17,13 +17,14 @@ If any one app were moved or removed, monitoring for all the others must not go 
 ## What it does
 
 Every 15 minutes a systemd timer (Linux's built-in scheduler) runs one short Python check.
-It reads how full the disk is and compares that with the reading from 15 minutes earlier.
-It emails only when one of two rules breaks:
+It reads how full the disk is and keeps the last six hours of readings, so the fill rate is
+an average over hours rather than one 15-minute jump. It emails only when one of two rules
+breaks:
 
 | Rule | Triggers when | Default |
 |---|---|---|
 | **nearly full** | used space reaches a percentage, counted the way `df` counts it | 85% |
-| **filling fast** | at the rate free space fell over the last 15 minutes, the disk would be full within a set number of hours | 24 hours, and only for growth faster than 0.5 GB/hour |
+| **filling fast** | free space fell by at least 5 GB within the last 6 hours, and at that average rate the disk would be full within 24 hours | 6-hour window, 5 GB minimum, 24-hour horizon |
 
 Each rule emails at most once every 6 hours, so a disk sitting at 86% does not send an email
 every 15 minutes.
@@ -112,6 +113,10 @@ without sending or saving anything. The third shows when the timer next runs.
 cd /opt/vm-ops && git pull && sudo bash install.sh
 ```
 
+`install.sh` never overwrites `/etc/vm-ops/config.toml`, so a setting added to the repo is
+missing on the VM until you copy it across; the code would then stop with a KeyError in the
+journal. The installer prints the difference between the two files to make that visible.
+
 ## Develop and test (laptop)
 
 ```bash
@@ -126,8 +131,9 @@ fraction of a second and send nothing. `disk_check.py` holds every rule as a pur
 ## Limitations
 
 - If the VM itself is down, nothing is sent. UptimeRobot's check of the curve API covers that.
-- A single burst, such as a 1 GB download deleted minutes later, can send one "filling fast"
-  email. The cooldown limits it to one.
+- Ordinary bursts (a VS Code login, a 3 GB library install) stay under the 5 GB minimum and
+  send nothing. A single burst of more than 5 GB, even one deleted soon after, sends one
+  "filling fast" email. Slow growth is caught by the 85% rule instead.
 - Growth is reported by folder, not by file, and only three levels deep. You then drill in
   by hand with `sudo du -xh --max-depth=1 <folder> | sort -h`.
 - The first alert after install has no baseline yet, so it lists only the largest folders.

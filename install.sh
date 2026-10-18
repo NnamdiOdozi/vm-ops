@@ -16,6 +16,11 @@ install -d -m 755 "$ETC_DIR"
 install -d -m 700 "$STATE_DIR"
 # Copy settings on first install only, so edits made on this machine survive updates.
 [ -f "$ETC_DIR/config.toml" ] || install -m 644 "$INSTALL_DIR/config.toml" "$ETC_DIR/config.toml"
+# A setting added to the repo later is missing here until copied across: show the difference.
+if ! diff -u "$ETC_DIR/config.toml" "$INSTALL_DIR/config.toml"; then
+    echo "WARNING: $ETC_DIR/config.toml differs from the repo (above). Add any new settings to it,"
+    echo "or, if you never edited it: sudo cp $INSTALL_DIR/config.toml $ETC_DIR/config.toml"
+fi
 
 for unit in "${UNITS[@]}"; do
     sed "s|__INSTALL_DIR__|$INSTALL_DIR|g" "$INSTALL_DIR/systemd/$unit" > "/etc/systemd/system/$unit"

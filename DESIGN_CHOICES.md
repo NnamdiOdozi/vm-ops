@@ -45,3 +45,13 @@ unless the path is a mount point (`os.path.ismount`).
 `/etc/vm-ops/smtp.env` holds a separate app password from the curve API's
 `/etc/fixed-income-api/smtp.env`. Revoking either never breaks the other, and vm-ops does
 not depend on a file another project's deploy owns.
+
+## The fill rate is averaged over 6 hours with a 5 GB minimum (2026-10-18)
+
+The first version projected from the single 15-minute step since the last run. On its first
+afternoon it emailed "full in 4.9 hours" because VS Code installed 0.6 GB of server files at
+login, which over 15 minutes extrapolates to 2.46 GB/hour. Every install would do the same.
+The rule now measures from the oldest reading within `fill_window_hours` (6) and requires
+free space to have fallen by at least `min_fill_drop_gb` (5) before it can fire. This follows
+the common Prometheus disk alert, which projects `predict_linear` over a 6-hour range. Slow
+growth that never reaches 5 GB in 6 hours is left to the 85% rule.

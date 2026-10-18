@@ -70,7 +70,8 @@ def compose(problems, reading, sizes, snapshot, cfg):
     if snapshot:
         taken = datetime.fromtimestamp(snapshot["time"], timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
         parts.append(f"Grew most since the baseline of {taken}:\n"
-                     + gb_rows(disk_check.growth_rows(snapshot["sizes"], sizes, g["top_n"]), signed=True))
+                     + gb_rows(disk_check.growth_rows(snapshot["sizes"], sizes, g["top_n"],
+                                               g["min_growth_gb"] * GB), signed=True))
     else:
         parts.append("No baseline snapshot yet, so growth cannot be attributed this time.")
     parts.append("Largest folders now:\n" + gb_rows(disk_check.largest_rows(sizes, g["top_n"])))
@@ -104,8 +105,8 @@ def run(cfg, now, dry_run=False, disk=read_disk, du=run_du, mail=send):
     state_path = Path(cfg["paths"]["state_file"])
     state = load_state(state_path)
     reading = disk(d["path"], now)
-    previous = state.get("last_reading")
-    problems = disk_check.disk_problems(reading, previous, d)
+    history = state.get("history", [])
+    problems = disk_check.disk_problems(reading, history, d)
     to_send = disk_check.due(problems, state["last_alerts"], now, d["cooldown_hours"])
     log("check", percent_used=round(disk_check.percent_used(reading), 1),
         free_gb=round(reading["free"] / GB, 2), problems=len(problems), due=len(to_send))
@@ -132,7 +133,10 @@ def run(cfg, now, dry_run=False, disk=read_disk, du=run_du, mail=send):
                     last_sent_before=state["last_alerts"].get(rule))
                 state["last_alerts"][rule] = now
 
-    state["last_reading"] = reading
+    # Keep just the readings the fill-rate window needs (24 per 6 h at 15-minute runs).
+    keep_from = now - d["fill_window_hours"] * 3600
+    state["history"] = [r for r in history if r["time"] >= keep_from] + [reading]
+    state.pop("last_reading", None)  # replaced by history (2026-10-18)
     if not dry_run:
         state_path.parent.mkdir(parents=True, exist_ok=True)
         state_path.write_text(json.dumps(state))
