@@ -27,6 +27,21 @@ for unit in "${UNITS[@]}"; do
 done
 systemctl daemon-reload
 
+# Machine-wide uv setting ([uv] in config.toml). Added only if /etc/uv/uv.toml has no
+# exclude-newer line yet, so a value set by hand on this machine is never overwritten.
+UV_CONF=/etc/uv/uv.toml
+EXCLUDE_NEWER="$(python3 -c 'import sys, tomllib; print(tomllib.load(open(sys.argv[1], "rb")).get("uv", {}).get("exclude_newer", ""))' "$ETC_DIR/config.toml")"
+if [ -z "$EXCLUDE_NEWER" ]; then
+    echo "WARNING: no [uv] exclude_newer in $ETC_DIR/config.toml (see the difference above); uv left unchanged."
+elif grep -q '^[[:space:]]*exclude-newer' "$UV_CONF" 2>/dev/null; then
+    echo "uv: $UV_CONF already has: $(grep '^[[:space:]]*exclude-newer' "$UV_CONF")"
+else
+    install -d -m 755 "$(dirname "$UV_CONF")"
+    echo "exclude-newer = \"$EXCLUDE_NEWER\"  # added by vm-ops install.sh" >> "$UV_CONF"
+    chmod 644 "$UV_CONF"
+    echo "uv: added exclude-newer = \"$EXCLUDE_NEWER\" to $UV_CONF"
+fi
+
 if [ ! -f "$ETC_DIR/smtp.env" ]; then
     echo "Next: create $ETC_DIR/smtp.env with SMTP_USER and SMTP_PASSWORD (see README), then rerun."
     echo "The timer is NOT enabled yet, because without credentials every alert would fail."

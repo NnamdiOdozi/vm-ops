@@ -26,3 +26,8 @@ smtp_port = 587               # STARTTLS; Hetzner blocks outgoing 25 and 465 by 
 
 [paths]
 state_file = "/var/lib/vm-ops/disk_state.json"
+
+[uv]
+# Machine-wide /etc/uv/uv.toml (install.sh): locking ignores package releases newer than this,
+# so a compromised release is not picked up on day one. Project and user uv settings override it.
+exclude_newer = "3 days"
