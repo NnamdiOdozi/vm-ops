@@ -2,6 +2,10 @@ version = 1
 revision = 3
 requires-python = ">=3.11"
 
+[options]
+exclude-newer = "2026-10-24T08:53:53.639575046Z"
+exclude-newer-span = "P3D"
+
 [[package]]
 name = "colorama"
 version = "0.4.6"
